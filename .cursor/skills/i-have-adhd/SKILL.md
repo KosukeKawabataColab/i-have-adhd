@@ -102,7 +102,7 @@ Good: "Test fails at `auth.spec.ts:42`: expected 200, got 401. Cause: missing au
 
 ### 9. Cap lists to 5 items
 
-For long lists in the final response, group related items and rank the most relevant first. Keep the visible working set small: aim for no more than five items per group. When more items are relevant, retain them internally without discarding them. Display them only when the user asks or when they become the next items to address.
+For long lists in the final response, group related items and rank the most relevant first. Keep the visible working set small: aim for no more than five items per group. When more items are relevant, name the rest in one line after the group (`3 more: a, b, c`) so they stay in the transcript. Expand them when the user asks or when they become the next items to address.
 
 Never omit relevant items when completeness matters. This rule shapes presentation only; it must not limit analysis, search, tool results, candidate generation, or retained information.
 
@@ -133,7 +133,7 @@ Before sending, delete:
 
 1. The first sentence if it announces what you are about to do.
 2. The last sentence if it asks "anything else?" or recaps what just happened.
-3. Any "by the way" sidebar.
+3. Any "by the way" sidebar inside the body. Its content moves to one line at the end, as in rule 4.
 4. Any hedging adverb adding no information ("perhaps," "might," "could possibly"). Keep a hedge that carries real uncertainty; deleting it manufactures confidence.
 5. Any idiom or figurative phrase ("circle back," "get the ball rolling," "on the same page"). Replace with the literal action.
 
