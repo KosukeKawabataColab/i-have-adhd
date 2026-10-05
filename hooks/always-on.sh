@@ -1,6 +1,7 @@
 #!/usr/bin/env sh
 # SessionStart hook: injects the full i-have-adhd ruleset when the user has
-# opted in by creating $CLAUDE_CONFIG_DIR/.i-have-adhd-always (default ~/.claude).
+# opted in by creating $CLAUDE_CONFIG_DIR/.i-have-adhd-always (default ~/.claude),
+# or a .i-have-adhd-always file in the session's start directory or an ancestor.
 # Never blocks session start: any failure exits 0.
 #
 # POSIX fallback for environments where the default Node hook cannot run. It
@@ -10,7 +11,20 @@ claude_dir="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
 flag_path="$claude_dir/.i-have-adhd-always"
 
 # Only fire when the user has opted in.
-[ -f "$flag_path" ] || exit 0
+if [ ! -f "$flag_path" ]; then
+  # A flag in a directory scopes always-on to sessions started at or below it.
+  dir=$(cd -- "${CLAUDE_PROJECT_DIR:-.}" 2>/dev/null && pwd -P) || exit 0
+  flag_path=
+  while :; do
+    if [ -f "${dir%/}/.i-have-adhd-always" ]; then
+      flag_path="${dir%/}/.i-have-adhd-always"
+      break
+    fi
+    [ "$dir" = / ] && break
+    dir=$(dirname -- "$dir")
+  done
+  [ -n "$flag_path" ] || exit 0
+fi
 
 # $0 is the absolute script path substituted into hooks.json by Claude Code,
 # so resolve SKILL.md relative to it instead of trusting an exported env var.

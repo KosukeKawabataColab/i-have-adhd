@@ -160,6 +160,12 @@ If you use a custom Claude configuration directory, create the flag there instea
 touch "$CLAUDE_CONFIG_DIR/.i-have-adhd-always"
 ```
 
+To scope always-on to one directory tree, put the flag there instead. Sessions started in that directory or any directory below it load the ruleset; sessions elsewhere stay on-demand. The PowerShell fallback hook only checks the flag in the configuration directory.
+
+```bash
+touch ~/work/.i-have-adhd-always
+```
+
 Back to on-demand:
 
 ```bash

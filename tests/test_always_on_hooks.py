@@ -42,16 +42,24 @@ class AlwaysOnHookTest(unittest.TestCase):
             )
         return runtimes
 
-    def run_hook(self, command):
+    def run_hook(self, command, cwd=None, project_dir=None):
         env = os.environ.copy()
         env["CLAUDE_CONFIG_DIR"] = str(self.config_dir)
+        env.pop("CLAUDE_PROJECT_DIR", None)
+        if project_dir is not None:
+            env["CLAUDE_PROJECT_DIR"] = str(project_dir)
         return subprocess.run(
             [str(part) for part in command],
             check=False,
             capture_output=True,
             text=True,
             env=env,
+            cwd=cwd or self.temp_dir.name,
         )
+
+    def directory_flag_runtimes(self):
+        # The PowerShell fallback only honours the global flag.
+        return [(name, command) for name, command in self.runtimes() if name != "powershell"]
 
     def run_codex_hook(self, plugin_root=None):
         config = json.loads((ROOT / "hooks" / "hooks.json").read_text())
@@ -132,6 +140,54 @@ class AlwaysOnHookTest(unittest.TestCase):
                 outputs[name] = normalized
 
         self.assertEqual(1, len(set(outputs.values())))
+
+    def test_directory_flag_enables_hook_below_that_directory(self):
+        work = Path(self.temp_dir.name) / "work"
+        start = work / "project" / "sub dir"
+        start.mkdir(parents=True)
+        flag = work / ".i-have-adhd-always"
+        flag.touch()
+        outputs = {}
+
+        for name, command in self.directory_flag_runtimes():
+            with self.subTest(runtime=name):
+                result = self.run_hook(command, cwd=start)
+                self.assertEqual(0, result.returncode)
+                self.assertEqual("", result.stderr)
+                self.assertIn("ADHD MODE ACTIVE (always-on)", result.stdout)
+                self.assertIn(f"delete {flag.resolve()} to turn", result.stdout)
+                outputs[name] = self.normalize(result.stdout)
+
+        self.assertEqual(1, len(set(outputs.values())))
+
+    def test_directory_flag_does_not_reach_sibling_directories(self):
+        work = Path(self.temp_dir.name) / "work"
+        work.mkdir()
+        (work / ".i-have-adhd-always").touch()
+        other = Path(self.temp_dir.name) / "other"
+        other.mkdir()
+
+        for name, command in self.directory_flag_runtimes():
+            with self.subTest(runtime=name):
+                result = self.run_hook(command, cwd=other)
+                self.assertEqual(0, result.returncode)
+                self.assertEqual("", result.stderr)
+                self.assertEqual("", result.stdout)
+
+    def test_directory_flag_is_found_from_claude_project_dir(self):
+        work = Path(self.temp_dir.name) / "work"
+        project = work / "project"
+        project.mkdir(parents=True)
+        (work / ".i-have-adhd-always").touch()
+        other = Path(self.temp_dir.name) / "other"
+        other.mkdir()
+
+        for name, command in self.directory_flag_runtimes():
+            with self.subTest(runtime=name):
+                result = self.run_hook(command, cwd=other, project_dir=project)
+                self.assertEqual(0, result.returncode)
+                self.assertEqual("", result.stderr)
+                self.assertIn("ADHD MODE ACTIVE (always-on)", result.stdout)
 
     def test_codex_command_runs_the_hook_instead_of_parsing_session_json(self):
         (self.config_dir / ".i-have-adhd-always").touch()

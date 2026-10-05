@@ -1,5 +1,6 @@
 // SessionStart hook: injects the full i-have-adhd ruleset when the user has
-// opted in by creating $CLAUDE_CONFIG_DIR/.i-have-adhd-always (default ~/.claude).
+// opted in by creating $CLAUDE_CONFIG_DIR/.i-have-adhd-always (default ~/.claude),
+// or a .i-have-adhd-always file in the session's start directory or an ancestor.
 // Never blocks session start: any failure exits 0.
 //
 // Runs under Node so it works on macOS, Linux, and Windows. The shared Claude
@@ -12,12 +13,28 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-try {
-  const claudeDir = process.env.CLAUDE_CONFIG_DIR || path.join(os.homedir(), ".claude");
-  const flagPath = path.join(claudeDir, ".i-have-adhd-always");
+const FLAG_NAME = ".i-have-adhd-always";
 
+function findFlag() {
+  const claudeDir = process.env.CLAUDE_CONFIG_DIR || path.join(os.homedir(), ".claude");
+  const globalFlag = path.join(claudeDir, FLAG_NAME);
+  if (fs.existsSync(globalFlag)) return globalFlag;
+
+  // A flag in a directory scopes always-on to sessions started at or below it.
+  let dir = fs.realpathSync(process.env.CLAUDE_PROJECT_DIR || process.cwd());
+  for (;;) {
+    const candidate = path.join(dir, FLAG_NAME);
+    if (fs.existsSync(candidate)) return candidate;
+    const parent = path.dirname(dir);
+    if (parent === dir) return null;
+    dir = parent;
+  }
+}
+
+try {
   // Only fire when the user has opted in.
-  if (!fs.existsSync(flagPath)) process.exit(0);
+  const flagPath = findFlag();
+  if (!flagPath) process.exit(0);
 
   // Resolve SKILL.md relative to this script's own location, not a trusted env var.
   const scriptDir = path.dirname(fileURLToPath(import.meta.url));
